@@ -1,0 +1,142 @@
+					NAME: AMISHA ANTIYA                     
+QUERY1:
+
+with d1 as (
+	select cust, min(quant) as MIN_Q, max(quant) as MAX_Q, avg(quant) as AVG_Q
+	from sales
+	group by cust),
+
+d2 as(
+	select d1.cust,d1.MIN_Q, s.prod as MIN_PROD, s.date as MIN_DATE, s.state as ST, d1.MAX_Q, d1.AVG_Q
+	from d1, sales s
+	where d1.cust=s.cust and d1.MIN_Q=s.quant) 
+
+select d2.cust as CUSTOMER, d2.MIN_Q, d2.MIN_PROD, d2.MIN_DATE, d2.ST,s.quant as MAX_Q, s.prod as MAX_PROD, s.date as MAX_DATE, s.state as ST, d2.AVG_Q
+from d2, sales s
+where d2.cust=s.cust and d2.MAX_Q=s.quant;
+
+
+
+
+QUERY2:
+
+with T1 as(
+	select cust,prod, max(quant) as OCT_MAX
+	from sales
+	where month=10 
+	group by cust,prod),
+T2 as(
+	select T1.cust, T1.prod, T1.OCT_MAX, s.date as OCT_DATE
+	from sales s, T1
+	where month=10 and year>2017 and T1.OCT_MAX=s.quant and T1.cust=s.cust),
+
+T3 as(
+	select cust, prod, min(quant) as NOV_MIN
+	from sales
+	where month=11
+	group by cust,prod),
+
+T4 as(
+	select T3.cust,T3.prod,T3.NOV_MIN, s.date as NOV_DATE
+	from T3,sales s
+	where month=11 and T3.NOV_MIN=s.quant and T3.cust=s.cust),
+
+T5 as(
+	select cust, prod, min(quant) as DEC_MIN
+	from sales
+	where month=12
+	group by cust,prod),
+
+T6 as(
+	select T5.cust,T5.prod,T5.DEC_MIN, s.date as DEC_DATE
+	from T5,sales s
+	where month=12 and T5.DEC_MIN=s.quant and T5.cust=s.cust
+)
+
+select cust as customer, prod as product, T2.OCT_MAX,T2.OCT_DATE, T4.NOV_MIN, T4.NOV_DATE, T6.DEC_MIN, T6.DEC_DATE
+from T2 natural join T4 natural join T6;
+
+
+
+QUERY3:
+with b1 as(
+	select month,prod,sum(quant) as sum_q
+	from sales
+	group by month,prod),
+
+b2 as(
+	select b1.month, max(sum_q) as max_q, min(sum_q) as min_q
+	from b1
+	group by month),
+
+b3 as(
+	select b2.month,b1.prod,b2.max_q
+	from b2,b1
+	where b2.month=b1.month and b2.max_q=b1.sum_q)
+
+select b3.month,b3.prod as most_popular_prod, b3.max_q as most_pop_total_q, b1.prod as least_popular_prod, b2.min_q as least_pop_total_q
+from b3,b2,b1
+where b3.month=b2.month and b2.min_q=b1.sum_q
+order by month;
+
+
+
+QUERY4:
+with b1 as(
+	select month,prod,sum(quant) as sum_q
+	from sales
+	group by month,prod
+),
+
+b2 as(
+	select b1.prod,max(sum_q) as max_q, min(sum_q) as min_q
+	from b1
+	group by prod),
+
+b3 as(
+	select b1.prod,b1.month as most_fav_mo
+	from b1,b2
+	where b2.max_q=b1.sum_q and b1.prod=b2.prod)
+
+select b1.prod as product, b3.most_fav_mo, b1.month as least_fav_mo
+from b1,b2,b3
+where b1.prod=b3.prod and b2.min_q=b1.sum_q;
+
+
+QUERY5:
+with s1 as(
+	select prod,cust, avg(quant) as CT_avg
+	from sales
+	where year between 2016 and 2020
+	and state='CT'
+	group by prod,cust),
+
+s2 as(
+	select prod,cust, avg(quant) as NY_avg
+	from sales
+	where year between 2016 and 2020
+	and state='NY'
+	group by prod,cust),
+
+s3 as(
+	select prod,cust, avg(quant) as NJ_avg
+	from sales
+	where year between 2016 and 2020
+	and state='NJ'
+	group by prod,cust),
+
+s4 as(
+	select prod,cust, avg(quant) as PA_avg
+	from sales
+	where year between 2016 and 2020
+	and state='PA'
+	group by prod,cust),
+
+s5 as (
+	select prod, cust, avg(quant) as average, sum(quant) as total,  count(quant) as count
+	from sales
+	group by prod,cust)
+
+select prod as product, cust as customer, CT_avg, NY_avg, NJ_avg, PA_avg, average , total, count
+from  s1 natural join s2 natural join s3 natural join s4 natural join s5
+order by product, customer;
