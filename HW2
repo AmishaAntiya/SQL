@@ -1,0 +1,129 @@
+					Name: Amisha Antiya    
+
+QUERY 1:
+with q1 as(
+select cust,prod,month,state,round(avg(quant),0) as cust_avg
+from sales
+group by cust,prod,month,state),
+
+q2 as(
+select q1.cust, q1.prod, q1.state, q1.month,q1.cust_avg, round(avg(s.quant),0) as other_prod_avg
+from q1, sales s
+where q1.cust=s.cust and q1.prod != s.prod and q1.state=s.state and q1.month=s.month
+group by q1.cust, q1.prod, q1.state, q1.month, q1.cust_avg),
+
+q3 as(
+select q2.cust, q2.prod, q2.state, q2.month, q2.cust_avg,q2.other_prod_avg, round(avg(s.quant),0) as other_month_avg
+from q2, sales s
+where q2.cust=s.cust and q2.prod = s.prod and q2.state=s.state and q2.month!=s.month
+group by q2.cust, q2.prod, q2.state,q2.month,q2.cust_avg,q2.other_prod_avg),
+
+q4 as(
+select q3.cust, q3.prod, q3.state, q3.month, q3.cust_avg,q3.other_prod_avg, q3.other_month_avg,
+	round(avg(s.quant),0) as other_state_avg
+from q3, sales s
+where q3.cust=s.cust and q3.prod = s.prod and q3.state !=s.state and q3.month=s.month
+group by q3.cust, q3.prod, q3.state,q3.month,q3.cust_avg,q3.other_prod_avg,q3.other_month_avg)
+
+select q4.cust as customer, q4.prod as product, q4.month, q4.state, q4.cust_avg, q4.other_prod_avg, q4.other_month_avg, q4.other_state_avg
+from q4
+order by customer, product, month, state;
+
+
+
+QUERY 2:
+With Q as(
+Select cust, prod, state
+From sales
+Group by cust, prod, state),
+
+T1 as (
+Select cust, prod, state, 1 as q1, round(avg(quant)) as avg_q
+From sales
+Where month in (1,2,3)
+Group by cust, prod, state),
+
+T2 as (
+Select cust, prod, state, 2 as q1, round(avg(quant)) as avg_q
+From sales
+Where month in (4,5,6)
+Group by cust, prod, state),
+
+T3 as (
+Select cust, prod, state, 3 as q1, round(avg(quant)) as avg_q
+From sales
+Where month in (7,8,9)
+Group by cust, prod, state),
+
+T4 as (
+Select cust, prod, state, 4 as q1, round(avg(quant)) as avg_q
+From sales
+Where month in (10,11,12)
+Group by cust, prod, state)
+
+Select Q.cust as customer, Q.prod as product,Q.state, 1 as q1, null as before_avg, T2.avg_q as after_avg
+From Q join T2 using (cust, prod, state)
+
+Union
+
+Select Q.cust as customer, Q.prod as product,Q.state, 2 as q1, T1.avg_q as before_avg, T3.avg_q as after_avg
+From Q join T1 using (cust, prod, state) join T3 using (cust, prod, state)
+
+Union
+
+Select Q.cust as customer, Q.prod as product,Q.state, 3 as q1, T2.avg_q as before_avg, T4.avg_q as after_avg
+From Q join T2 using (cust, prod, state) join T4 using (cust, prod, state)
+
+Union
+
+Select Q.cust as customer, Q.prod as product,Q.state, 4 as q1, T3.avg_q as before_avg, null as after_avg
+From Q join T3 using (cust, prod, state)
+Order by customer, product;
+
+
+
+QUERY 3:
+
+=>METHOD 1:
+with S as (
+select prod, quant
+from sales
+group by prod, quant
+order by prod, quant),
+
+T1 as(
+select S1.prod, S1.quant, count(S2.quant) as Q
+from S as S1, S as S2
+where S1.quant>=S2.quant and S1.prod=S2.prod
+group by S1.prod, S1.quant
+order by S1.prod, S1.quant),
+
+T2 as(
+select prod, (count(quant)/2) as MQ
+from T1
+group by prod
+order by prod)
+
+select T2.prod as product, T1.quant as median_quant
+from T1,T2
+where T1.prod=T2.prod and T1.Q=T2.MQ
+order by product;
+
+=>METHOD 2:
+select prod as product, percentile_disc(0.5) within group (order by quant) as median_quant
+from sales
+group by product;
+
+
+QUERY 4:
+with I1 as(
+select cust,prod,month,quant,
+	sum(quant) over (partition by cust,prod order by cust, prod,month) as TS,
+	0.75* sum(quant) over (partition by cust,prod) as TS1
+from sales
+order by cust,prod,month)
+
+select cust as customer, prod as product, min(month) as "75% purchased by month"
+from I1
+where I1.TS >= I1.TS1
+group by customer, product;
